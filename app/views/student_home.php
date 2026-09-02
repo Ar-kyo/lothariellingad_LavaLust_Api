@@ -19,30 +19,8 @@
         <nav>
             <a href="<?= site_url('student'); ?>">Home</a>
             <a href="<?= site_url('student/profile'); ?>">Student Profile</a>
+            <a href="<?= site_url('users'); ?>">Users</a>
         </nav>
     </main>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title><?= $page_title; ?></title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f7f6; text-align: center; padding: 50px; }
-        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0,0,0,0.1); display: inline-block; }
-        nav a { margin: 0 15px; text-decoration: none; color: #007bff; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1><?= $welcome_message; ?></h1>
-        <p>Mindoro State University - BSIT Portal</p>
-        
-        <nav style="margin-top: 20px;">
-            <a href="<?= site_url('student'); ?>">Home</a> | 
-            <a href="<?= site_url('student/profile'); ?>">Student Profile</a>
-        </nav>
-    </div>
 </body>
 </html>

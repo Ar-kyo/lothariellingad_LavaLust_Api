@@ -32,36 +32,3 @@
     </main>
 </body>
 </html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Student Profile</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #eef2f3; padding: 40px; }
-        .profile-card { background: white; max-width: 500px; margin: auto; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-        p { font-size: 16px; color: #555; line-height: 1.5; }
-        nav { margin-top: 20px; text-align: center; }
-        nav a { margin: 0 15px; text-decoration: none; color: #007bff; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="profile-card">
-        <h1>Student Information</h1>
-        <p><strong>Student ID:</strong> {{ student_id }}</p>
-        <p><strong>Name:</strong> {{ name }}</p>
-        <p><strong>Course:</strong> {{ course }}</p>
-        <p><strong>Year Level:</strong> {{ year }}</p>
-        <p><strong>Section:</strong> {{ section }}</p>
-        <p><strong>Email:</strong> {{ email }}</p>
-        <p><strong>Address:</strong> {{ address }}</p>
-        <p><strong>Skills:</strong> {{ skills }}</p>
-        
-        <nav>
-            <a href="<?= site_url('student'); ?>">Home</a> | 
-            <a href="<?= site_url('student/profile'); ?>">Student Profile</a>
-        </nav>
-    </div>
-</body>
-</html>
