@@ -20,6 +20,7 @@
             <a href="<?= site_url('student'); ?>">Home</a>
             <a href="<?= site_url('student/profile'); ?>">Student Profile</a>
             <a href="<?= site_url('users'); ?>">Users</a>
+            <a href="<?= site_url('products'); ?>">Products</a>
         </nav>
     </main>
 </body>
