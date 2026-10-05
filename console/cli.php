@@ -95,7 +95,7 @@ if (!isset($commands[$command])) {
     exit;
 }
 
-call_user_func($commands[$command]['handler'], $input, $flags);
+call_user_func_array($commands[$command]['handler'], [$input, $flags, ...array_slice($positional, 1)]);
 
 /**
  * Scan app/commands/ for classes that declare:

@@ -267,6 +267,9 @@ class Database {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,
         );
+        if ($driver === 'mysql' && !empty($database_config['ssl_ca']) && defined('PDO::MYSQL_ATTR_SSL_CA')) {
+            $options[PDO::MYSQL_ATTR_SSL_CA] = $database_config['ssl_ca'];
+        }
 
         try {
             $this->db = new PDO($dsn, $username, $password, $options);

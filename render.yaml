@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: lavalust-products-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_SSL_CA
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_TOKEN_KEY
+        generateValue: true
+      - key: PRODUCTS_ADMIN_USERNAME
+        sync: false
+      - key: PRODUCTS_ADMIN_PASSWORD_HASH
+        sync: false
+      - key: API_ALLOWED_ORIGINS
+        sync: false
+
+  - type: web
+    name: lavalust-products-ui
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://lavalust-products-api.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
