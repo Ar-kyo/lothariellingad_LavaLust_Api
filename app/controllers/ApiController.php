@@ -67,7 +67,6 @@ class ApiController extends Controller
     public function register()
     {
         $this->api->require_method('POST');
-        $this->api->rate_limit('register', 5, 3600);
         $input = $this->api->body();
         $username = trim((string) ($input['username'] ?? ''));
         $email = trim((string) ($input['email'] ?? ''));
@@ -87,6 +86,7 @@ class ApiController extends Controller
             $this->api->respond_error('Password must be at least 8 characters.', 422);
         }
 
+        $this->api->rate_limit('register', 5, 3600);
         $this->call->database();
         $this->call->model('UsersModel');
 
