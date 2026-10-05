@@ -124,8 +124,8 @@ class ApiController extends Controller
     public function logout()
     {
         $this->api->require_method('POST');
-        $this->api->require_jwt();
         $this->call->database();
+        $this->api->require_jwt();
         $body = $this->api->body();
         $refresh_token = (string) ($body['refresh_token'] ?? '');
 
@@ -138,8 +138,8 @@ class ApiController extends Controller
 
     public function products()
     {
-        $this->api->require_jwt();
         $this->call->database();
+        $this->api->require_jwt();
         $this->call->model('ProductModel');
         $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
@@ -158,8 +158,8 @@ class ApiController extends Controller
 
     public function product($id)
     {
-        $this->api->require_jwt();
         $this->call->database();
+        $this->api->require_jwt();
         $this->call->model('ProductModel');
         $product_id = (int) $id;
         $product = $this->ProductModel->find($product_id);

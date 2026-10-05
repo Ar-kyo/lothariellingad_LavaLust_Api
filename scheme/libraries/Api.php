@@ -41,6 +41,8 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
  */
 class Api
 {
+    private const MIN_SECRET_LENGTH = 32;
+
     /**
      * LavaLust Super Object
      *
@@ -54,6 +56,10 @@ class Api
      * @var string
      */
     protected $refresh_token_table;
+
+    protected $users_table = 'users';
+
+    protected $verify_user = true;
 
     /**
      * Api Payload Token Expiration
@@ -143,6 +149,8 @@ class Api
 
         // Load config
         $this->refresh_token_table      = config_item('refresh_token_table') ?? $this->refresh_token_table;
+        $this->users_table              = config_item('users_table') ?? $this->users_table;
+        $this->verify_user              = (bool) (config_item('jwt_verify_user') ?? $this->verify_user);
         $this->payload_token_expiration = (int) (config_item('payload_token_expiration') ?? $this->payload_token_expiration);
         $this->refresh_token_expiration = (int) (config_item('refresh_token_expiration') ?? $this->refresh_token_expiration);
         $this->jwt_secret               = config_item('jwt_secret');
@@ -158,11 +166,11 @@ class Api
         $this->rate_limit_requests  = (int)  (config_item('rate_limit_requests') ?? $this->rate_limit_requests);
         $this->rate_limit_seconds   = (int)  (config_item('rate_limit_seconds') ?? $this->rate_limit_seconds);
 
-        if (empty($this->jwt_secret) || strlen($this->jwt_secret) < 32) {
-            show_error('JWT secret is missing or too weak. Use at least 32 random characters.');
-        }
-        if (empty($this->refresh_token_key) || strlen($this->refresh_token_key) < 32) {
-            show_error('Refresh token key is missing or too weak.');
+        $this->assert_secret_is_safe($this->jwt_secret, 'jwt_secret');
+        $this->assert_secret_is_safe($this->refresh_token_key, 'refresh_token_key');
+
+        if (hash_equals((string) $this->jwt_secret, (string) $this->refresh_token_key)) {
+            show_error('jwt_secret and refresh_token_key must be different values.');
         }
 
         $this->handle_cors();
@@ -170,6 +178,17 @@ class Api
         if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
             http_response_code(204);
             exit;
+        }
+    }
+
+    private function assert_secret_is_safe($secret, $name)
+    {
+        $secret = (string) $secret;
+        if ($secret === '' || strlen($secret) < self::MIN_SECRET_LENGTH) {
+            show_error("{$name} is missing or too short. Use at least " . self::MIN_SECRET_LENGTH . " random characters.");
+        }
+        if (count(array_unique(str_split($secret))) < 10) {
+            show_error("{$name} has too little entropy. Use a random value.");
         }
     }
 
@@ -456,7 +475,7 @@ class Api
      * @param string $token
      * @return array<string,mixed>|null
      */
-    public function validate_jwt($token)
+    public function validate_jwt($token, $expected_type = 'access')
     {
         $payload = $this->decode_jwt($token);
         if (!$payload) return null;
@@ -464,6 +483,7 @@ class Api
         if (!isset($payload['sub'], $payload['exp'], $payload['iat'])) return null;
         if ($payload['exp'] < time() || ($payload['iat'] ?? 0) > time()) return null;
         if (($payload['iss'] ?? '') !== $this->jwt_issuer || ($payload['aud'] ?? '') !== $this->jwt_audience) return null;
+        if (($payload['type'] ?? '') !== $expected_type) return null;
 
         return $payload;
     }
@@ -486,18 +506,44 @@ class Api
     }
 
 
+    protected function scopes_for_role($role)
+    {
+        $role_scopes = [
+            'admin' => ['read', 'write', 'delete'],
+            'moderator' => ['read', 'write'],
+            'user' => ['read', 'write'],
+        ];
+
+        return $role_scopes[$role] ?? ['read'];
+    }
+
     /**
-     * require_jwt
+     * Require a valid access token and, by default, an active database user.
      *
-     * @return void
+     * @return array|null
      */
     public function require_jwt()
     {
         $token = $this->get_bearer_token();
-        $payload = $this->validate_jwt($token ?? '');
+        $payload = $this->validate_jwt($token ?? '', 'access');
 
         if (!$payload) {
             $this->respond_error('Unauthorized', 401);
+        }
+
+        if ($this->verify_user) {
+            $stmt = $this->_lava->db->raw(
+                "SELECT id, role, is_active FROM {$this->users_table} WHERE id = ? LIMIT 1",
+                [$payload['sub']]
+            );
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user || empty($user['is_active'])) {
+                $this->respond_error('Unauthorized', 401);
+            }
+
+            $payload['role'] = $user['role'];
+            $payload['scopes'] = $this->scopes_for_role($user['role']);
         }
 
         return $payload;
@@ -520,6 +566,7 @@ class Api
 
         $access_payload = [
             'sub'   => $user_id,
+            'type'  => 'access',
             'role'  => $user_data['role'] ?? 'user',
             'scopes'=> $scopes,
         ];
@@ -562,8 +609,8 @@ class Api
      */
     public function refresh_access_token($refresh_token)
     {
-        $payload = $this->validate_jwt($refresh_token);
-        if (!$payload || ($payload['type'] ?? '') !== 'refresh') {
+        $payload = $this->validate_jwt($refresh_token, 'refresh');
+        if (!$payload) {
             $this->respond_error('Invalid refresh token', 403);
         }
 
@@ -580,10 +627,24 @@ class Api
             $this->respond_error('Refresh token expired or revoked', 403);
         }
 
+        $user_stmt = $this->_lava->db->raw(
+            "SELECT id, role FROM {$this->users_table} WHERE id = ? LIMIT 1",
+            [$payload['sub']]
+        );
+        $user = $user_stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            $this->respond_error('User not found', 403);
+        }
+
         // Revoke old + rotate (best practice)
         $this->revoke_refresh_token($refresh_token);
 
-        $new_tokens = $this->issue_tokens(['id' => $payload['sub']]);
+        $new_tokens = $this->issue_tokens([
+            'id' => $user['id'],
+            'role' => $user['role'],
+            'scopes' => $this->scopes_for_role($user['role']),
+        ]);
 
         $this->respond([
             'message' => 'Tokens refreshed successfully',

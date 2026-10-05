@@ -63,6 +63,10 @@ register_command('route:list', 'handle_route_list', 'Display all registered rout
 
 register_command('key:generate', 'handle_key_generate', 'Generate a new application key', []);
 
+register_command('jwt:generate', 'handle_jwt_generate', 'Generate API signing keys and save them to .env', [
+    '[--force]' => 'Replace existing JWT_SECRET and REFRESH_TOKEN_KEY values'
+]);
+
 register_command('env:check', 'handle_env_check', 'Display current environment configuration summary', []);
 
 autoload_commands();
@@ -421,6 +425,60 @@ function handle_key_generate() {
 }
 
 /**
+ * Generate or rotate API signing keys without printing their values.
+ *
+ * @param string|null $input
+ * @param array $flags
+ * @return void
+ */
+function handle_jwt_generate($input = null, array $flags = []) {
+    $env_file = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env';
+    $env = file_exists($env_file) ? file_get_contents($env_file) : '';
+    $force = !empty($flags['force']);
+
+    foreach (['JWT_SECRET', 'REFRESH_TOKEN_KEY'] as $name) {
+        $current = cli_env_get($env, $name);
+        if ($current !== null && $current !== '' && !$force) {
+            echo "{$name} is already set; skipped. Use --force to rotate it." . PHP_EOL;
+            continue;
+        }
+
+        $env = cli_env_set($env, $name, bin2hex(random_bytes(32)));
+        echo success("{$name} generated and saved to .env") . PHP_EOL;
+    }
+
+    if (file_put_contents($env_file, $env) === false) {
+        echo danger("Could not write to {$env_file}") . PHP_EOL;
+        exit(1);
+    }
+
+    echo "Keep .env out of version control. Existing tokens are invalid after rotation." . PHP_EOL;
+}
+
+function cli_env_get($env, $name) {
+    if (preg_match('/^' . preg_quote($name, '/') . "[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m", $env, $matches)) {
+        return trim($matches[1], " \t\"'");
+    }
+
+    return null;
+}
+
+function cli_env_set($env, $name, $value) {
+    $pattern = '/^' . preg_quote($name, '/') . "[ \t]*=.*$/m";
+    if (preg_match($pattern, $env)) {
+        return preg_replace_callback($pattern, function () use ($name, $value) {
+            return "{$name}={$value}";
+        }, $env, 1);
+    }
+
+    if ($env !== '' && substr($env, -1) !== "\n") {
+        $env .= PHP_EOL;
+    }
+
+    return $env . "{$name}={$value}" . PHP_EOL;
+}
+
+/**
  * Handle Environment Check Command
  *
  * @return void
@@ -757,7 +815,7 @@ function help_text($commands) {
         'Server'    => ['serve', 'run'],
         'Cache'     => ['cache:clear'],
         'Makers'    => ['make:controller', 'make:model', 'make:middleware', 'make:helper', 'make:library', 'make:view', 'make:language', 'make:config', 'make:command'],
-        'Utilities' => ['route:list', 'key:generate', 'env:check'],
+        'Utilities' => ['route:list', 'key:generate', 'jwt:generate', 'env:check'],
     ];
 
     $all_built_in = array_merge(...array_values($built_in_groups));
