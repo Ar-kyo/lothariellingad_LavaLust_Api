@@ -98,6 +98,8 @@ class ApiController extends Controller
         }
 
         $user_id = $this->UsersModel->insert([
+            'firstname' => $username,
+            'lastname' => '',
             'username' => $username,
             'email' => $email,
             'password' => password_hash($password, PASSWORD_DEFAULT),
