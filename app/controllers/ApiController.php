@@ -21,26 +21,40 @@ class ApiController extends Controller
         $credentials = $this->api->body();
         $username = (string) ($credentials['username'] ?? '');
         $password = (string) ($credentials['password'] ?? '');
+        $this->call->database();
+        $this->call->model('UsersModel');
+        $user = $username !== '' ? $this->UsersModel->find_by('username', $username) : null;
         $expected_username = getenv('PRODUCTS_ADMIN_USERNAME') ?: '';
         $password_hash = getenv('PRODUCTS_ADMIN_PASSWORD_HASH') ?: '';
         $configured_password = getenv('PRODUCTS_ADMIN_PASSWORD') ?: '';
 
-        if ($expected_username === '' || ($password_hash === '' && $configured_password === '')) {
-            $this->api->respond_error('API login is not configured.', 503);
+        if (is_array($user)) {
+            if (empty($user['is_active']) || !password_verify($password, (string) $user['password'])) {
+                $this->api->respond_error('Invalid username or password.', 401);
+            }
+
+            $user_id = (int) $user['id'];
+            $role = (string) $user['role'];
+        } else {
+            if ($expected_username === '' || ($password_hash === '' && $configured_password === '')) {
+                $this->api->respond_error('API login is not configured.', 503);
+            }
+
+            $valid_password = $password_hash !== ''
+                ? password_verify($password, $password_hash)
+                : hash_equals($configured_password, $password);
+
+            if (!hash_equals($expected_username, $username) || !$valid_password) {
+                $this->api->respond_error('Invalid username or password.', 401);
+            }
+
+            $user_id = (int) (getenv('PRODUCTS_ADMIN_USER_ID') ?: 1);
+            $role = 'admin';
         }
 
-        $valid_password = $password_hash !== ''
-            ? password_verify($password, $password_hash)
-            : hash_equals($configured_password, $password);
-
-        if (!hash_equals($expected_username, $username) || !$valid_password) {
-            $this->api->respond_error('Invalid username or password.', 401);
-        }
-
-        $this->call->database();
         $tokens = $this->api->issue_tokens([
-            'id' => (int) (getenv('PRODUCTS_ADMIN_USER_ID') ?: 1),
-            'role' => 'admin',
+            'id' => $user_id,
+            'role' => $role,
             'scopes' => ['products:read', 'products:write'],
         ]);
 
@@ -48,6 +62,59 @@ class ApiController extends Controller
             'data' => $tokens,
             'user' => ['username' => $username],
         ]);
+    }
+
+    public function register()
+    {
+        $this->api->require_method('POST');
+        $this->api->rate_limit('register', 5, 3600);
+        $input = $this->api->body();
+        $username = trim((string) ($input['username'] ?? ''));
+        $email = trim((string) ($input['email'] ?? ''));
+        $password = (string) ($input['password'] ?? '');
+
+        if (!preg_match('/^[A-Za-z0-9_.-]{3,100}$/', $username)) {
+            $this->api->respond_error('Username must be 3 to 100 characters and use only letters, numbers, dots, underscores, or hyphens.', 422);
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
+            $this->api->respond_error('Enter a valid email address.', 422);
+        }
+        if (strlen($password) < 8) {
+            $this->api->respond_error('Password must be at least 8 characters.', 422);
+        }
+
+        $this->call->database();
+        $this->call->model('UsersModel');
+
+        if ($this->UsersModel->find_by('username', $username)) {
+            $this->api->respond_error('That username is already in use.', 409);
+        }
+        if ($this->UsersModel->find_by('email', $email)) {
+            $this->api->respond_error('That email address is already in use.', 409);
+        }
+
+        $user_id = $this->UsersModel->insert([
+            'username' => $username,
+            'email' => $email,
+            'password' => password_hash($password, PASSWORD_DEFAULT),
+            'role' => 'user',
+            'is_active' => 1,
+        ]);
+
+        if (!$user_id) {
+            $this->api->respond_error('Could not create the account.', 500);
+        }
+
+        $tokens = $this->api->issue_tokens([
+            'id' => (int) $user_id,
+            'role' => 'user',
+            'scopes' => ['products:read', 'products:write'],
+        ]);
+
+        $this->api->respond([
+            'data' => $tokens,
+            'user' => ['id' => (int) $user_id, 'username' => $username, 'email' => $email],
+        ], 201);
     }
 
     public function logout()

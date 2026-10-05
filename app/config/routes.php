@@ -23,6 +23,7 @@ $router->get('/refresh', 'MigrationController::refresh');
 $router->get('/status', 'MigrationController::status');
 
 $router->get('/api/health', 'ApiController::health');
+$router->match('/api/auth/register', 'ApiController::register', 'POST|OPTIONS');
 $router->match('/api/auth/login', 'ApiController::login', 'POST|OPTIONS');
 $router->match('/api/auth/logout', 'ApiController::logout', 'POST|OPTIONS');
 $router->match('/api/products', 'ApiController::products', 'GET|POST|OPTIONS');

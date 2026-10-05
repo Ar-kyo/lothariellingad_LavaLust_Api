@@ -96,7 +96,7 @@ $config['refresh_token_key'] = getenv('REFRESH_TOKEN_KEY') ?: '';
 | already deployed.
 |
 */
-$allowed_origins = getenv('API_ALLOWED_ORIGINS') ?: 'http://localhost:5173';
+$allowed_origins = getenv('API_ALLOWED_ORIGINS') ?: 'http://localhost:5173,http://localhost:5174';
 $config['allow_origin'] = array_map('trim', explode(',', $allowed_origins));
 
 /*
