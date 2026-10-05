@@ -30,16 +30,3 @@ services:
         sync: false
       - key: API_ALLOWED_ORIGINS
         sync: false
-
-  - type: web
-    name: lavalust-products-ui
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm ci && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://lavalust-products-api.onrender.com/api
-    routes:
-      - type: rewrite
-        source: /*
