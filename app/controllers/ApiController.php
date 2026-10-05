@@ -72,9 +72,13 @@ class ApiController extends Controller
         $username = trim((string) ($input['username'] ?? ''));
         $email = trim((string) ($input['email'] ?? ''));
         $password = (string) ($input['password'] ?? '');
+        $admin_username = getenv('PRODUCTS_ADMIN_USERNAME') ?: '';
 
         if (!preg_match('/^[A-Za-z0-9_.-]{3,100}$/', $username)) {
             $this->api->respond_error('Username must be 3 to 100 characters and use only letters, numbers, dots, underscores, or hyphens.', 422);
+        }
+        if ($admin_username !== '' && strcasecmp($username, $admin_username) === 0) {
+            $this->api->respond_error('That username is reserved.', 409);
         }
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
             $this->api->respond_error('Enter a valid email address.', 422);
