@@ -99,7 +99,7 @@ $config['users_table'] = 'users';
 | already deployed.
 |
 */
-$allowed_origins = getenv('API_ALLOWED_ORIGINS') ?: 'http://localhost:5173,http://localhost:5174';
+$allowed_origins = getenv('API_ALLOWED_ORIGINS') ?: 'https://lothariellingad-react-vue-applicati.vercel.app/';
 $config['allow_origin'] = array_map('trim', explode(',', $allowed_origins));
 
 /*
